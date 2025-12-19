@@ -1,7 +1,7 @@
 
 
 from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify
-import psycopg2
+import psycopg
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -13,7 +13,7 @@ app.secret_key = os.environ.get('SECRET_KEY', 'dev_secret_key')
 def init_db():
     conn = None
     try:
-        conn = psycopg2.connect(DATABASE_URL)
+        conn = psycopg.connect(DATABASE_URL)
 
         c = conn.cursor()
 
@@ -74,7 +74,7 @@ def login_required(f):
 
 def log_activity(username, activity):
     try:
-        conn = psycopg2.connect(DATABASE_URL)
+        conn = psycopg.connect(DATABASE_URL)
 
         c = conn.cursor()
         c.execute("""
@@ -90,7 +90,7 @@ def log_activity(username, activity):
 
 def update_expiry_status():
     try:
-        conn = psycopg2.connect(DATABASE_URL)
+        conn = psycopg.connect(DATABASE_URL)
 
         c = conn.cursor()
 
@@ -129,7 +129,7 @@ def update_expiry_status():
 
 def update_expiry_notifications():
     try:
-        conn = psycopg2.connect(DATABASE_URL)
+        conn = psycopg.connect(DATABASE_URL)
 
         c = conn.cursor()
 
@@ -173,7 +173,7 @@ def auth():
 
     conn = None
     try:
-        conn = psycopg2.connect(DATABASE_URL)
+        conn = psycopg.connect(DATABASE_URL)
 
         c = conn.cursor()
         c.execute("""
@@ -220,7 +220,7 @@ def dashboard():
 
     conn = None
     try:
-        conn = psycopg2.connect(DATABASE_URL)
+        conn = psycopg.connect(DATABASE_URL)
 
         c = conn.cursor()
         
@@ -340,7 +340,7 @@ def products():
 
     conn = None
     try:
-        conn = psycopg2.connect(DATABASE_URL)
+        conn = psycopg.connect(DATABASE_URL)
 
         c = conn.cursor()
         c.execute("""
@@ -375,7 +375,7 @@ def purchases():
 
     conn = None
     try:
-        conn = psycopg2.connect(DATABASE_URL)
+        conn = psycopg.connect(DATABASE_URL)
 
         c = conn.cursor()
         c.execute("""
@@ -415,7 +415,7 @@ def orders():
 
     conn = None
     try:
-        conn = psycopg2.connect(DATABASE_URL)
+        conn = psycopg.connect(DATABASE_URL)
 
         c = conn.cursor()
         c.execute("""
@@ -446,7 +446,7 @@ def notification():
 
     conn = None
     try:
-        conn = psycopg2.connect(DATABASE_URL)
+        conn = psycopg.connect(DATABASE_URL)
 
         c = conn.cursor()
         c.execute("""
@@ -470,7 +470,7 @@ def notification():
 def add_product():
     conn = None
     try:
-        conn = psycopg2.connect(DATABASE_URL)
+        conn = psycopg.connect(DATABASE_URL)
 
         c = conn.cursor()
         
@@ -511,7 +511,7 @@ def edit_product(product_id):
 
     conn = None
     try:
-        conn = psycopg2.connect(DATABASE_URL)
+        conn = psycopg.connect(DATABASE_URL)
 
         c = conn.cursor()
         c.execute("""
@@ -540,7 +540,7 @@ def edit_product(product_id):
 def delete_product(product_id):
     conn = None
     try:
-        conn = psycopg2.connect(DATABASE_URL)
+        conn = psycopg.connect(DATABASE_URL)
 
         c = conn.cursor()
         # Either delete or mark inactive
@@ -562,7 +562,7 @@ def delete_product(product_id):
 def add_purchase():
     conn = None
     try:
-        conn = psycopg2.connect(DATABASE_URL)
+        conn = psycopg.connect(DATABASE_URL)
 
         c = conn.cursor()
 
@@ -599,7 +599,7 @@ def edit_purchase(purchase_id):
 
     conn = None
     try:
-        conn = psycopg2.connect(DATABASE_URL)
+        conn = psycopg.connect(DATABASE_URL)
 
         c = conn.cursor()
 
@@ -636,7 +636,7 @@ def edit_purchase(purchase_id):
 def delete_purchase(purchase_id):
     conn = None
     try:
-        conn = psycopg2.connect(DATABASE_URL)
+        conn = psycopg.connect(DATABASE_URL)
 
         c = conn.cursor()
         c.execute("SELECT product_id, batch_number FROM Purchase WHERE id = %s", (purchase_id,))
@@ -679,7 +679,7 @@ def add_order():
         return jsonify({'success': False, 'message': 'Invalid input'}), 400
 
     try:
-        conn = psycopg2.connect(DATABASE_URL)
+        conn = psycopg.connect(DATABASE_URL)
 
         c = conn.cursor()
         c.execute("""
@@ -710,7 +710,7 @@ def edit_order(order_id):
 
     conn = None
     try:
-        conn = psycopg2.connect(DATABASE_URL)
+        conn = psycopg.connect(DATABASE_URL)
 
         c = conn.cursor()
 
@@ -761,7 +761,7 @@ def edit_order(order_id):
 def delete_order(order_id):
     conn = None
     try:
-        conn = psycopg2.connect(DATABASE_URL)
+        conn = psycopg.connect(DATABASE_URL)
 
         c = conn.cursor()
         # Get order details
@@ -794,7 +794,7 @@ def delete_order(order_id):
 
 
 def get_notifications(limit=10):
-    conn = psycopg2.connect(DATABASE_URL)
+    conn = psycopg.connect(DATABASE_URL)
 
     c = conn.cursor()
     c.execute("SELECT id, message, created_at, is_read FROM Notification ORDER BY created_at DESC LIMIT %s", (limit,))
@@ -812,7 +812,7 @@ def notification_json():
     update_expiry_notifications()
     conn = None
     try:
-        conn = psycopg2.connect(DATABASE_URL)
+        conn = psycopg.connect(DATABASE_URL)
 
         c = conn.cursor()
         # Only return notifications that are not ignored
@@ -861,7 +861,7 @@ def touch_notification(notif_id):
 def ignore_notification(notif_id):
     conn = None
     try:
-        conn = psycopg2.connect(DATABASE_URL)
+        conn = psycopg.connect(DATABASE_URL)
 
         c = conn.cursor()
         c.execute("""
@@ -881,7 +881,7 @@ def ignore_notification(notif_id):
 @app.route('/read-notification/<int:notif_id>', methods=['POST'])
 @login_required
 def read_notification(notif_id):
-    conn = psycopg2.connect(DATABASE_URL)
+    conn = psycopg.connect(DATABASE_URL)
 
     c = conn.cursor()
     c.execute("""
