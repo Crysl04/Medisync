@@ -198,7 +198,6 @@ def auth():
             return render_template('index.html', error="Invalid login, please try again.", username=username)
 
     except Exception as e:
-       except Exception as e:
         print(f"Login exception: {str(e)}")  # <-- Debug line
         return render_template('index.html', error=f"Login error: {str(e)}", username=username)
 
