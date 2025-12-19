@@ -1,0 +1,350 @@
+{% extends 'layout.html' %}
+{% block title %}MediSync - Products{% endblock %}
+
+{% block content %}
+
+
+<div class="main">
+  <header class="dashboard-header">
+    <h1>Inventory Management</h1>
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <img src="static//profile.png"            
+          alt="Profile Picture" width="40" height="40" style="border-radius: 50%;"> 
+      <div>
+        <strong>{{ session['name'] }}</strong><br>
+        <small>Administrator</small>
+      </div>
+    </div>
+  </header>
+  
+  <hr class="hr-line">
+
+  <div style="display: none;">
+    Debug info:
+    Number of products: {{ products|length }}
+    Products: {{ products }}
+  </div>
+
+  <div class="products-controls">
+    <div class="filter-btn">
+      <input type="text" id="searchProducts" placeholder="Search products..." onkeyup="searchProductsTable()" />
+      <button onclick="toggleFilterOptions()">
+        <img src="{{ url_for('static', filename='filter.png') }}" alt="Filter Icon" class="filter-icon">
+        FILTER
+      </button>
+      <div id="filterOptions" class="filter-options" style="display: none;">
+        <div class="filter-group">
+          <label>Product Type:</label>
+          <select id="typeFilter" onchange="applyFilters()">
+            <option value="">All Types</option>
+            {% for type in product_types %}
+              <option value="{{ type }}">{{ type }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="filter-group">
+          <label>Category:</label>
+          <select id="categoryFilter" onchange="applyFilters()">
+            <option value="">All Categories</option>
+            {% for cat in categories %}
+              <option value="{{ cat[1] }}">{{ cat[1] }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="filter-group">
+          <label>Stock Status:</label>
+          <select id="statusFilter" onchange="applyFilters()">
+            <option value="">All Status</option>
+            <option value="in stock">In Stock</option>
+            <option value="low stock">Low Stock</option>
+            <option value="out of stock">Out of Stock</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <button class="add-btn" onclick="openProductModal()">+ Add item</button>
+  </div>
+
+  <div class="products-table">
+    <table id="productsTable">
+      <thead>
+        <tr>
+          <th><button class="sort-btn" data-sort="code">Item Code</button></th>
+          <th><button class="sort-btn" data-sort="name">Item Name</button></th>
+          <th><button class="sort-btn" data-sort="type">Type</button></th>
+          <th><button class="sort-btn" data-sort="category">Category</button></th>
+          <th><button class="sort-btn" data-sort="quantity">Stock Quantity</button></th>
+          <th><button class="sort-btn" data-sort="status">Stock Status</button></th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if products %}
+        {% for product in products %}
+        <tr>
+          <td>{{ product[0] }}</td>
+          <td>{{ product[1] }}</td>
+          <td>{{ product[2] }}</td>
+          <td>{{ product[4] }}</td>
+          <td>{{ product[3] }}</td>
+          <td>
+            {% if product[5] == 'in stock' %}
+              <span class="status in">✅ In stock</span>
+            {% elif product[5] == 'low stock' %}
+              <span class="status low">⚠️ Low stock</span>
+            {% else %}
+              <span class="status out">🔴 Out of stock</span>
+            {% endif %}
+          </td>
+          <td>
+            <button onclick="editProduct('{{ product[0] }}')">Edit</button>
+            <button onclick="deleteProduct('{{ product[0] }}')">Delete</button>
+          </td>
+        </tr>
+        {% endfor %}
+        {% else %}
+        <tr>
+          <td colspan="7" style="text-align: center;">No products found</td>
+        </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</main>
+
+<div id="productModal" class="modal" style="display:none;">
+  <div style="background:#fff; margin:5% auto; padding:20px; border-radius:8px; width:350px; position:relative;">
+    <h2 id="modalTitle">Add Product</h2>
+    <form id="productForm" method="POST" action="/add-product">
+      <label>Product Name:</label><br>
+      <input type="text" name="product_name" required><br><br>
+      <label>Product Type:</label><br>
+      <select name="product_type" required>
+        <option value="">Select Type</option>
+        <option value="medicine">Medicine</option>
+        <option value="supply">Supplies</option>
+      </select><br><br>
+      <label>Category:</label><br>
+      <select name="category_id" required>
+        <option value="">Select Category</option>
+        {% for cat in categories %}
+          <option value="{{ cat[0] }}">{{ cat[1] }}</option>
+        {% endfor %}
+      </select><br><br>
+      <div style="text-align:right;">
+        <button type="button" onclick="closeProductModal()">Cancel</button>
+        <button type="submit" id="modalSubmit">Add</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+
+<style>
+  td button {
+    margin: 2px;
+    padding: 4px 8px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  td button:first-child {
+    background-color: #4CAF50;
+    color: white;
+  }
+  td button:last-child {
+    background-color: #f44336;
+    color: white;
+  }
+</style>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const table = document.getElementById('productsTable');
+    const cells = table.getElementsByTagName('td');
+    
+    for (let cell of cells) {
+      cell.addEventListener('click', function() {
+        const allCells = table.getElementsByTagName('td');
+        for (let c of allCells) {
+          c.classList.remove('expanded');
+        }
+        this.classList.toggle('expanded');
+      });
+    }
+  });
+
+  function searchProductsTable() {
+    applyFilters();
+  }
+
+  function saveProduct() {
+    const form = document.getElementById('addProductForm');
+    const formData = new FormData(form);
+    
+    fetch('/add-product', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => {
+        if (response.redirected) {
+            window.location.href = response.url;
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error adding product');
+    });
+  }
+
+  function editProduct(id) {
+  const row = [...document.querySelectorAll('#productsTable tbody tr')].find(r => r.cells[0].textContent == id);
+  const name = row.cells[1].textContent;
+  const type = row.cells[2].textContent;
+  const categoryText = row.cells[3].textContent;
+  const categoryId = [...document.querySelectorAll('select[name="category_id"] option')]
+                       .find(opt => opt.textContent == categoryText).value;
+
+  document.getElementById('modalTitle').textContent = 'Edit Product';
+  document.getElementById('modalSubmit').textContent = 'Update';
+  const form = document.getElementById('productForm');
+  form.action = '/edit-product/' + id;
+
+  form.product_name.value = name;
+  form.product_type.value = type;
+  form.category_id.value = categoryId;
+
+  form.onsubmit = function(e) {
+    e.preventDefault();
+    fetch(form.action, { method: 'POST', body: new FormData(form) })
+      .then(res => res.json())
+      .then(data => {
+        alert(data.message);
+        if(data.success) location.reload();
+      });
+  }
+
+  openProductModal();
+}
+
+function deleteProduct(id) {
+  if(confirm('Are you sure you want to delete this product?')) {
+    fetch('/delete-product/' + id, { method: 'POST' })
+      .then(res => res.json())
+      .then(data => {
+        alert(data.message);
+        if(data.success) location.reload();
+      })
+      .catch(err => alert('Error deleting product: ' + err));
+  }
+}
+
+
+
+  function openProductModal() {
+    document.getElementById('productModal').style.display = 'block';
+  }
+
+  function closeProductModal() {
+    document.getElementById('productModal').style.display = 'none';
+  }
+
+  function toggleFilterOptions() {
+    const filterOptions = document.getElementById('filterOptions');
+    filterOptions.style.display = filterOptions.style.display === 'none' ? 'block' : 'none';
+  }
+
+  function applyFilters() {
+    const typeFilter = document.getElementById('typeFilter').value.toLowerCase();
+    const categoryFilter = document.getElementById('categoryFilter').value.toLowerCase();
+    const statusFilter = document.getElementById('statusFilter').value.toLowerCase();
+    const searchFilter = document.getElementById('searchProducts').value.toLowerCase();
+    
+    const table = document.getElementById('productsTable');
+    const rows = table.getElementsByTagName('tr');
+
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+      const type = row.cells[2].textContent.toLowerCase();
+      const category = row.cells[3].textContent.toLowerCase();
+      const status = row.cells[5].textContent.toLowerCase();
+      const rowText = row.textContent.toLowerCase();
+
+      const typeMatch = !typeFilter || type === typeFilter;
+      const categoryMatch = !categoryFilter || category === categoryFilter;
+      const statusMatch = !statusFilter || status.includes(statusFilter);
+      const searchMatch = !searchFilter || rowText.includes(searchFilter);
+
+      row.style.display = (typeMatch && categoryMatch && statusMatch && searchMatch) ? '' : 'none';
+    }
+  }
+
+  document.addEventListener('click', function(event) {
+    const filterBtn = document.querySelector('.filter-btn');
+    const filterOptions = document.getElementById('filterOptions');
+    
+    if (!filterBtn.contains(event.target)) {
+      filterOptions.style.display = 'none';
+    }
+  });
+
+  let currentSort = {
+    column: 'code',
+    direction: 'asc'
+  };
+
+  function sortTable() {
+    const table = document.getElementById('productsTable');
+    const tbody = table.querySelector('tbody');
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    
+    rows.sort((a, b) => {
+      let aValue = a.children[getColumnIndex(currentSort.column)].textContent;
+      let bValue = b.children[getColumnIndex(currentSort.column)].textContent;
+      
+      if (currentSort.column === 'code' || currentSort.column === 'quantity') {
+        aValue = parseFloat(aValue.replace(/[^0-9.-]+/g, ''));
+        bValue = parseFloat(bValue.replace(/[^0-9.-]+/g, ''));
+      }
+      
+      if (currentSort.direction === 'asc') {
+        return aValue > bValue ? 1 : -1;
+      } else {
+        return aValue < bValue ? 1 : -1;
+      }
+    });
+    
+    rows.forEach(row => tbody.appendChild(row));
+  }
+
+  sortTable();
+
+  document.querySelectorAll('.sort-btn').forEach(button => {
+    button.addEventListener('click', () => {
+      const column = button.dataset.sort;
+      
+      if (currentSort.column === column) {
+        currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+      } else {
+        currentSort.column = column;
+        currentSort.direction = 'asc';
+      }
+      
+      sortTable();
+    });
+  });
+
+  function getColumnIndex(column) {
+    const columnMap = {
+      'code': 0,
+      'name': 1,
+      'type': 2,
+      'category': 3,
+      'quantity': 4,
+      'status': 5
+    };
+    return columnMap[column];
+  }
+</script>
+
+{% endblock %}

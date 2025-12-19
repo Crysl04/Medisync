@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>{% block title %}MediSync{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&icon_names=analytics" />
+
+  <style>
+    /* Dashboard-style notification popup */
+    .notification-popup {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: #fff3cd;
+      border: 1px solid #ffeeba;
+      padding: 15px;
+      width: 300px;
+      border-radius: 8px;
+      box-shadow: 0px 4px 6px rgba(0,0,0,0.1);
+      z-index: 9999;
+    }
+    .notification-popup.hidden { display: none; }
+    .notification-buttons { display: flex; justify-content: space-between; margin-top: 10px; }
+    .notif-close { cursor: pointer; font-size: 18px; }
+
+    /* Centered Alert Modal */
+.notification-modal {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 9999;
+  padding: 0;
+  pointer-events: none;   /* Prevent interaction when hidden */
+  opacity: 0;
+  transform: translateY(-10px);
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
+.notification-modal.show {
+  pointer-events: auto;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Modal Box */
+.modal-content {
+  background: #d9e9f6;               /* Light blue like the sample */
+  width: 340px;
+  padding: 25px;
+  border-radius: 15px;
+  position: relative;
+  text-align: center;
+  box-shadow: 0px 6px 12px rgba(0,0,0,0.15);
+}
+
+/* Close (X) */
+.modal-close {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  font-size: 20px;
+  cursor: pointer;
+  color: #042f50;
+}
+
+/* Red Warning Icon */
+.alert-icon {
+  font-size: 55px;
+  color: #e62e2e; /* Red */
+  margin-bottom: 10px;
+}
+
+/* Title */
+.alert-title {
+  font-size: 20px;
+  font-weight: bold;
+  color: #042f50;
+  margin-bottom: 8px;
+}
+
+/* Description text */
+.alert-text {
+  color: #042f50;
+  font-size: 15px;
+  margin-bottom: 20px;
+}
+
+/* Buttons */
+.modal-buttons {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.btn-filled {
+  background: #042f50;
+  border: none;
+  color: white;
+  padding: 10px 15px;
+  border-radius: 8px;
+  cursor: pointer;
+  width: 100%;
+}
+
+.btn-outline {
+  background: transparent;
+  border: 2px solid #042f50;
+  color: #042f50;
+  padding: 10px 15px;
+  border-radius: 8px;
+  cursor: pointer;
+  width: 100%;
+}
+  </style>
+</head>
+
+<body class="dashboard-body">
+  <aside>
+    <div>
+      <div class="logo">MediSync</div>
+      <nav>
+        <a href="{{ url_for('dashboard') }}"><i class="fa-solid fa-chart-line"></i>Dashboard</a>
+        <a href="{{ url_for('notification') }}"><i class="fa-solid fa-bell"></i>Notifications</a>
+        <a href="{{ url_for('products') }}"><i class="fa-solid fa-pills"></i>Products</a>
+        <a href="{{ url_for('purchases') }}"><i class="fa-solid fa-solid fa-cart-shopping"></i>Stock in</a>
+        <a href="{{ url_for('orders') }}"><i class="fa-solid fa-truck"></i>Stock out</a>
+      </nav>
+    </div>
+    <a href="/logout" class="logout">Log Out</a>
+  </aside>
+
+  <main class="main">
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- New Styled Notification Popup -->
+<div id="notification-popup" class="notification-modal hidden">
+  <div class="modal-content">
+      <span id="close-notif-btn" class="modal-close">&times;</span>
+
+      <div class="alert-icon">
+        <i class="fa-solid fa-circle-exclamation"></i>
+      </div>
+
+      <h2 id="notification-title" class="alert-title"></h2>
+      <p id="notification-message" class="alert-text"></p>
+
+      <div class="modal-buttons">
+        <button id="ignore-notif-btn" class="btn-outline">Ignore Notification</button>
+        <button id="notify-again-btn" class="btn-filled">Notify Me Again</button>
+      </div>
+  </div>
+</div>
+
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const popup = document.getElementById('notification-popup');
+  const messageEl = document.getElementById('notification-message');
+  const closeBtn = document.getElementById('close-notif-btn');
+  const notifyAgainBtn = document.getElementById('notify-again-btn');
+  const ignoreBtn = document.getElementById('ignore-notif-btn');
+
+  let queue = [];
+  let showing = false;
+  let current = null;
+
+  function show(notif) {
+  if (showing) return;
+
+  current = notif;
+  showing = true;
+
+  messageEl.textContent = notif.message;
+  document.getElementById('notification-title').textContent = getAlertTitle(notif.type); // ✅ set title dynamically
+  popup.classList.add('show');
+
+  // mark as “last shown” for interval check
+  localStorage.setItem(`notif_${notif.id}`, Date.now());
+
+  // update server last_notified timestamp
+  fetch(`/touch-notification/${notif.id}`, { method: 'POST' });
+}
+
+
+  function hide() {
+    popup.classList.remove('show');
+    showing = false;
+    current = null;
+
+    setTimeout(showNext, 400);
+  }
+
+  function showNext() {
+    if (showing || queue.length === 0) return;
+    show(queue.shift());
+  }
+
+  async function fetchNotifications() {
+  const INTERVAL = 30 * 1000; // 30 seconds
+  const res = await fetch('{{ url_for("notification_json") }}');
+  const data = await res.json();
+
+  queue = data.filter(n => {
+    if (n.ignored) return false;
+
+    const lastShown = localStorage.getItem(`notif_${n.id}`);
+    return !lastShown || (Date.now() - lastShown) >= INTERVAL;
+  });
+
+  showNext();
+}
+
+function getAlertTitle(type) {
+  switch (type) {
+    case 'low-stock':
+      return 'Low Stock Alert!';
+    case 'out-of-stock':
+      return 'Out of Stock Alert!';
+    case 'near-expiry':
+      return 'Near Expiry Alert!';
+    case 'expired':
+      return 'Expired Product Alert!';
+    default:
+      return 'Notification';
+  }
+}
+
+
+
+  async function markAsRead(id) {
+  await fetch(`/read-notification/${id}`, { method: 'POST' });
+  }
+
+
+  closeBtn.onclick = () => {
+  if (current) markAsRead(current.id);
+  hide();
+  };
+
+  notifyAgainBtn.onclick = () => {
+  if (current) markAsRead(current.id);
+  hide();
+  };
+
+  ignoreBtn.onclick = async () => {
+  if (!current) return;
+
+  await fetch(`/ignore-notification/${current.id}`, { method: 'POST' });
+  await markAsRead(current.id);
+
+  hide();
+  };
+
+
+  fetchNotifications();
+  setInterval(fetchNotifications, 30000);
+});
+</script>
+
+</body>
+</html>

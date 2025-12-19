@@ -1,0 +1,257 @@
+{% extends 'layout.html' %}
+{% block title %}MediSync - Orders{% endblock %}
+
+{% block content %}
+<div class="main">
+  <header class="dashboard-header">
+    <h1>Inventory Management</h1>
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <img src="static/profile.png" alt="Profile Picture" width="40" height="40" style="border-radius: 50%;"> 
+      <div>
+        <strong>{{ session['name'] }}</strong><br>
+        <small>Administrator</small>
+      </div>
+    </div>
+  </header>
+
+  <hr class="hr-line">
+
+  <div class="products-controls">
+    <div class="filter-btn">
+      <input type="text" id="searchOrders" placeholder="Search orders..." onkeyup="applyOrderFilters()" />
+      <button onclick="toggleOrderFilterOptions()">
+        <img src="{{ url_for('static', filename='filter.png') }}" alt="Filter Icon" class="filter-icon">
+        FILTER
+      </button>
+      <div id="orderFilterOptions" class="filter-options" style="display: none;">
+        <div class="filter-group">
+          <label>Batch Number:</label>
+          <input type="text" id="batchFilter" placeholder="Enter batch number..." onkeyup="applyOrderFilters()" />
+        </div>
+        <div class="filter-group">
+          <label>Order Date:</label>
+          <input type="date" id="dateFilter" onchange="applyOrderFilters()" />
+        </div>
+      </div>
+    </div>
+    <button class="add-btn" onclick="openAddOrderModal()">+ Add Order</button>
+  </div>
+
+  <div class="orders-table">
+    <table id="ordersTable">
+      <thead>
+        <tr>
+          <th>Delivery Date</th>
+          <th>Customer</th>
+          <th>Product Name</th>
+          <th>Quantity</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if orders %}
+          {% for order in orders %}
+<tr data-order-id="{{ order[0] }}" 
+    data-product-id="{{ order[1] }}" 
+    data-batch="{{ order[3] }}" 
+    data-quantity="{{ order[2] }}" 
+    data-date="{{ order[4] }}" 
+    data-customer="{{ order[5] }}">
+              <td>{{ order[4] }}</td>
+              <td>{{ order[5] }}</td>
+              <td>{{ order[1] }}</td>
+              <td>{{ order[2] }}</td>
+              <td>
+                <button onclick="openEditOrderModal('{{ order[0] }}', '{{ order[1] }}', '{{ order[3] }}', '{{ order[2] }}', '{{ order[5] }}')">Edit</button>
+                <button onclick="deleteOrder('{{ order[0] }}')">Delete</button>
+              </td>
+            </tr>
+          {% endfor %}
+        {% else %}
+          <tr>
+            <td colspan="7" style="text-align: center;">No orders found</td>
+          </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<style>
+  td button {
+    margin: 2px;
+    padding: 4px 8px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  td button:first-child {
+    background-color: #4CAF50;
+    color: white;
+  }
+  td button:last-child {
+    background-color: #f44336;
+    color: white;
+  }
+</style>
+
+<!-- Add Order Modal -->
+<div id="addOrderModal" class="modal" style="display:none; position:fixed; z-index:1000; left:0; top:0; width:100vw; height:100vh; background:rgba(0,0,0,0.4);">
+  <div style="background:#fff; margin:5% auto; padding:20px; border-radius:8px; width:350px; position:relative;">
+    <h2>Add Order</h2>
+    <form id="addOrderForm" method="POST">
+      <label>Product:</label><br>
+      <select name="product_id" id="addProductId" required>
+        <option value="">Select Product</option>
+        {% for prod in products %}
+          <option value="{{ prod[0] }}">{{ prod[1] }}</option>
+        {% endfor %}
+      </select><br><br>
+
+      <label>Batch Number:</label><br>
+      <input type="text" name="batch_number" id="addBatchNumber" required><br><br>
+
+      <label>Order Quantity:</label><br>
+      <input type="number" name="order_quantity" id="addOrderQuantity" min="1" required><br><br>
+
+      <label>Customer:</label><br>
+      <input type="text" name="customer" id="addCustomer" required><br><br>
+
+      <div style="text-align:right;">
+        <button type="button" onclick="closeAddOrderModal()">Cancel</button>
+        <button type="submit">Add</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Edit Order Modal -->
+<div id="editOrderModal" class="modal" style="display:none; position:fixed; z-index:1000; left:0; top:0; width:100vw; height:100vh; background:rgba(0,0,0,0.4);">
+  <div style="background:#fff; margin:5% auto; padding:20px; border-radius:8px; width:350px; position:relative;">
+    <h2>Edit Order</h2>
+    <form id="editOrderForm" method="POST">
+      <input type="hidden" name="order_id" id="editOrderId">
+
+      <label>Product:</label><br>
+      <select name="product_id" id="editProductId" required>
+        <option value="">Select Product</option>
+        {% for prod in products %}
+          <option value="{{ prod[0] }}">{{ prod[1] }}</option>
+        {% endfor %}
+      </select><br><br>
+
+      <label>Batch Number:</label><br>
+      <input type="text" name="batch_number" id="editBatchNumber" required><br><br>
+
+      <label>Order Quantity:</label><br>
+      <input type="number" name="order_quantity" id="editOrderQuantity" min="1" required><br><br>
+
+      <label>Customer:</label><br>
+      <input type="text" name="customer" id="editCustomer" required><br><br>
+
+      <div style="text-align:right;">
+        <button type="button" onclick="closeEditOrderModal()">Cancel</button>
+        <button type="submit">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function toggleOrderFilterOptions() {
+  const filterBox = document.getElementById("orderFilterOptions");
+  filterBox.style.display = filterBox.style.display === "none" ? "block" : "none";
+}
+
+function applyOrderFilters() {
+  const searchValue = document.getElementById("searchOrders").value.toLowerCase();
+  const batchValue = document.getElementById("batchFilter").value.toLowerCase();
+  const dateValue = document.getElementById("dateFilter").value;
+
+  const rows = document.querySelectorAll("#ordersTable tbody tr");
+  rows.forEach(row => {
+    const text = row.textContent.toLowerCase();
+    const rowBatch = row.getAttribute("data-batch")?.toLowerCase();
+    const rowDate = row.getAttribute("data-date");
+
+    const matchesSearch = text.includes(searchValue);
+    const matchesBatch = rowBatch.includes(batchValue);
+    const matchesDate = dateValue === "" || rowDate === dateValue;
+
+    row.style.display = matchesSearch && matchesBatch && matchesDate ? "" : "none";
+  });
+}
+
+// Add Order Modal
+function openAddOrderModal() { document.getElementById('addOrderModal').style.display = 'block'; }
+function closeAddOrderModal() { document.getElementById('addOrderModal').style.display = 'none'; }
+
+document.getElementById('addOrderForm').addEventListener('submit', function(e) {
+  e.preventDefault();
+  const productId = parseInt(document.getElementById('addProductId').value);
+  const batchNumber = document.getElementById('addBatchNumber').value;
+  const quantity = parseInt(document.getElementById('addOrderQuantity').value);
+  const customer = document.getElementById('addCustomer').value;
+
+  if(isNaN(productId) || isNaN(quantity) || !batchNumber || !customer) {
+    alert('Please fill all fields correctly.');
+    return;
+  }
+
+  fetch('/add-order', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ product_id: productId, batch_number: batchNumber, order_quantity: quantity, customer: customer })
+  })
+  .then(res => res.json())
+  .then(data => {
+    alert(data.message);
+    if(data.success) location.reload();
+  });
+});
+
+
+// Edit Order Modal
+function openEditOrderModal(orderId, productId, batchNumber, quantity, customer) {
+  document.getElementById('editOrderId').value = orderId;
+  document.getElementById('editProductId').value = productId;
+  document.getElementById('editBatchNumber').value = batchNumber;
+  document.getElementById('editOrderQuantity').value = quantity;
+  document.getElementById('editCustomer').value = customer;
+  document.getElementById('editOrderModal').style.display = 'block';
+}
+function closeEditOrderModal() { document.getElementById('editOrderModal').style.display = 'none'; }
+
+document.getElementById('editOrderForm').addEventListener('submit', function(e) {
+  e.preventDefault();
+  const orderId = document.getElementById('editOrderId').value;
+  const productId = document.getElementById('editProductId').value;
+  const batchNumber = document.getElementById('editBatchNumber').value;
+  const quantity = document.getElementById('editOrderQuantity').value;
+  const customer = document.getElementById('editCustomer').value;
+
+  fetch(`/edit-order/${orderId}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ product_id: productId, batch_number: batchNumber, order_quantity: quantity, customer: customer })
+  })
+  .then(res => res.json())
+  .then(data => {
+    alert(data.message);
+    if(data.success) location.reload();
+  });
+});
+
+// Delete order
+function deleteOrder(orderId) {
+  if(confirm('Are you sure you want to delete this order?')) {
+    fetch(`/delete-order/${orderId}`, { method: 'POST' })
+      .then(res => res.json())
+      .then(data => {
+        alert(data.message);
+        if(data.success) location.reload();
+      });
+  }
+}
+</script>
+{% endblock %}

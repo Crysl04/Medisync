@@ -1,0 +1,186 @@
+{% extends 'layout.html' %}
+{% block title %}MediSync - Dashboard{% endblock %}
+
+{% block content %}
+<div class="main">
+  <header class="dashboard-header">
+    <h1>Inventory Management</h1>
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <img src="static//profile.png" 
+           alt="Profile Picture" width="40" height="40" style="border-radius: 50%;"> 
+      <div>
+        <strong>{{ session['name'] }}</strong><br>
+        <small>Administrator</small>
+      </div>
+    </div>
+  </header>
+
+  <hr class="hr-line">
+
+  <div class="dashboard-panels">
+
+    <div class="overview-box">
+      <h3>Overview</h3>
+      <div class="stats-row">
+        <div class="card yellow">
+          <h2>{{ total_stocks }}</h2>
+          <p>Total Stocks</p>
+        </div>
+        <div class="card yellow">
+          <h2>{{ out_of_stocks }}</h2>
+          <p>Out of Stocks</p>
+        </div>
+        <div class="card yellow">
+          <h2>{{ total_orders }}</h2>
+          <p>Orders</p>
+        </div>
+        <div class="card yellow">
+          <h2>{{ expiring_soon|length }}</h2>
+          <p>Expiring Soon</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="bottom-row">
+
+      <!-- Stock-in Summary Section -->
+      <section class="summary-box">
+        <div class="summary-stats">
+          <span id="title-report" class="summary-fade"></span><br><br>
+          <div id="med-report" class="summary-fade">--</div>
+          <div id="sup-report" class="summary-fade">--</div>
+        </div>
+
+        <div class="summary-buttons" style="margin-top: 20px;">
+          <button id="products-btn">Products</button>
+          <button id="stockins-btn" class="active">Stock-ins</button>
+          <button id="stockout-btn">Stock-out</button>
+        </div>
+      </section>
+
+      <!-- Expiring Soon Section -->
+      <div class="expiring-box">
+        <h2>Expiring Soon...</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Item Code</th>
+              <th>Item Name</th>
+              <th>Expiration Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in expiring_soon %}
+            <tr>
+              <td>{{ item.code }}</td>
+              <td>{{ item.name }}</td>
+              <td>{{ item.expiration.strftime('%b %d, %Y') }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+    </div> <!-- bottom-row -->
+
+  </div> <!-- dashboard-panels -->
+</div> <!-- main -->
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  // --- Dashboard summary logic ---
+  const productsData = { 
+    medicines: {{ medicines | tojson }},
+    supplies: {{ supplies | tojson }}
+  };
+  const stockInsData = { 
+    medicines: {{ stockins_medicines | tojson }},
+    supplies: {{ stockins_supplies | tojson }}
+  };
+  const stockOutData = { 
+    medicines: {{ stockouts_medicines | tojson }},
+    supplies: {{ stockouts_supplies | tojson }}
+  };
+
+  const titleReport = document.getElementById('title-report');
+  const medReport = document.getElementById('med-report');
+  const supReport = document.getElementById('sup-report');
+
+  const buttons = {
+    products: document.getElementById('products-btn'),
+    stockins: document.getElementById('stockins-btn'),
+    stockout: document.getElementById('stockout-btn')
+  };
+
+  function padNumber(num) { return num.toString().padStart(2, '0'); }
+  function clearActiveButtons() { Object.values(buttons).forEach(btn => btn.classList.remove('active')); }
+
+  function updateReport(element, content) {
+    element.classList.add('hidden');
+    setTimeout(() => {
+      element.innerHTML = content;
+      element.classList.remove('hidden');
+    }, 300);
+  }
+
+  function updateSummary({ title, data, labelMed, labelSup, activeBtn }) {
+    clearActiveButtons();
+    buttons[activeBtn].classList.add('active');
+    titleReport.textContent = title;
+
+    updateReport(medReport,
+      `<div class="summary-row">
+        <span class="summary-number">${padNumber(data.medicines)}</span>
+        <span class="summary-label">${labelMed}</span>
+      </div>`
+    );
+
+    updateReport(supReport,
+      `<div class="summary-row">
+        <span class="summary-number">${padNumber(data.supplies)}</span>
+        <span class="summary-label">${labelSup}</span>
+      </div>`
+    );
+  }
+
+  buttons.products.addEventListener('click', () =>
+    updateSummary({
+      title: 'Total Products:',
+      data: productsData,
+      labelMed: 'medicines',
+      labelSup: 'supplies',
+      activeBtn: 'products'
+    })
+  );
+
+  buttons.stockins.addEventListener('click', () =>
+    updateSummary({
+      title: 'Stock-ins this week:',
+      data: stockInsData,
+      labelMed: 'medicines received',
+      labelSup: 'supplies received',
+      activeBtn: 'stockins'
+    })
+  );
+
+  buttons.stockout.addEventListener('click', () =>
+    updateSummary({
+      title: 'Stock-outs this week:',
+      data: stockOutData,
+      labelMed: 'medicines dispensed',
+      labelSup: 'supplies dispensed',
+      activeBtn: 'stockout'
+    })
+  );
+
+  updateSummary({
+    title: 'Total Products:',
+    data: productsData,
+    labelMed: 'medicines',
+    labelSup: 'supplies',
+    activeBtn: 'products'
+  });
+});
+</script>
+
+{% endblock %}

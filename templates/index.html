@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>MediSync - Login</title>
+    <link rel="stylesheet" href="static/style.css" />
+  </head>
+  <body class="login-page">
+    <div class="login-container">
+      <h1>Medicine and Supply Tracking System</h1>
+
+      {% with messages = get_flashed_messages(with_categories=true) %} {% if
+      messages %} {% for category, message in messages %}
+      <div class="flash {{ category }}">{{ message }}</div>
+      {% endfor %} {% endif %} {% endwith %}
+
+      <form action="/auth" method="post">
+  
+        <!-- Inline error message -->
+        {% if error %}
+          <div class="inline-error">{{ error }}</div>
+        {% endif %}
+
+        <div class="form-group">
+          <label for="username">Username</label>
+          <input
+            type="text"
+            id="username"
+            name="username"
+            placeholder="Enter your username"
+            value="{{ username|default('') }}"
+            required
+          />
+        </div>
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input
+            type="password"
+            id="password"
+            name="password"
+            placeholder="Enter your password"
+            required
+          />
+        </div>
+        <button type="submit" class="btn">Sign In</button>
+      </form>
+
+    </div>
+  </body>
+</html>

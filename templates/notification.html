@@ -1,0 +1,106 @@
+{% extends 'layout.html' %}
+{% block title %}MediSync - Notifications{% endblock %}
+
+{% block content %}
+<div class="main">
+  <header class="dashboard-header">
+    <h1>Inventory Management</h1>
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <img src="static//profile.png" 
+           alt="Profile Picture" width="40" height="40" style="border-radius: 50%;"> 
+      <div>
+        <strong>{{ session['name'] }}</strong><br>
+        <small>Administrator</small>
+      </div>
+    </div>
+  </header>
+
+  <hr class="hr-line">
+
+  {% if notifications %}
+    {% for notification in notifications %}
+      <section class="notif-card {% if not notification[3] %}unread{% else %}read{% endif %} {{ notification[4] }}-type" 
+               data-notification-id="{{ notification[0] }}">
+        <div class="notif-content">
+          <h3>
+            <span class="icon">
+              {% if notification[4] == 'low-stock' %}⚠️{% elif notification[4] == 'out-of-stock' %}🚫{% elif notification[4] == 'near-expiry' %}⏳{% elif notification[4] == 'expired' %}💀{% endif %}
+            </span>
+            <span class="{% if notification[4] == 'low-stock' %}low-stock{% elif notification[4] == 'out-of-stock' %}out-of-stock{% elif notification[4] == 'near-expiry' %}near-expiry{% elif notification[4] == 'expired' %}expired{% endif %}">
+              {% if notification[4] == 'low-stock' %}Low Stock Alert
+              {% elif notification[4] == 'out-of-stock' %}Out of Stock
+              {% elif notification[4] == 'near-expiry' %}Nearly Expired Item
+              {% elif notification[4] == 'expired' %}Expired Item
+              {% endif %}
+            </span>
+          </h3>
+          <p>{{ notification[1]|safe }}</p>
+        </div>
+        <div class="notif-meta">
+          <span class="status clickable" onclick="markAsRead(this)">{% if not notification[3] %}📧 Unread{% else %}✉️ Read{% endif %}</span>
+          <span class="time">{{ notification[2].strftime('%A. %I:%M %p') }}</span>
+        </div>
+      </section>
+    {% endfor %}
+  {% else %}
+    <div class="no-notifications">
+      <p>No notifications at the moment.</p>
+    </div>
+  {% endif %}
+</main>
+
+<script>
+console.log('Script loaded');
+
+function markAsRead(element) {
+  console.log('markAsRead function called', element);
+  const notificationCard = element.closest('.notif-card');
+  if (!notificationCard) {
+    console.error('Could not find parent notification card');
+    return;
+  }
+
+  const notificationId = notificationCard.dataset.notificationId;
+  console.log('Notification ID:', notificationId);
+  
+  if (!notificationId) {
+    console.error('Notification ID not found on element');
+    return;
+  }
+
+  console.log('Attempting to mark notification as read:', notificationId);
+
+  fetch(`/mark-notification-read/${notificationId}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Requested-With': 'XMLHttpRequest'
+    },
+    credentials: 'same-origin'
+  })
+  .then(response => {
+    console.log('Fetch response received. Status:', response.status);
+    if (!response.ok) {
+      throw new Error('Network response was not ok, status: ' + response.status);
+    }
+    return response.json();
+  })
+  .then(data => {
+    console.log('JSON data received:', data);
+    if (data.success) {
+      console.log('Notification marked as read successfully in backend');
+      element.textContent = '✉️ Read';
+      
+      notificationCard.classList.remove('unread');
+      notificationCard.classList.add('read');
+      console.log('UI updated');
+    } else {
+      console.error('Backend reported failure to mark notification as read:', data.error);
+    }
+  })
+  .catch(error => {
+    console.error('Error during fetch operation:', error);
+  });
+}
+</script>
+{% endblock %}
